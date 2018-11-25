@@ -1,0 +1,280 @@
+
+
+<!DOCTYPE html>
+<html lang="PT-BR">
+
+<head>
+        <meta charset="utf-8">
+</head>
+    <meta charset="utf-8"><script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+    crossorigin="anonymous"></script>
+<script>
+    var genereteRandom = function () {
+        this.lat = getRandomArbitrary(-23.345455, -23.900995);
+        this.lng = getRandomArbitrary(-46.364213, -46.813124);
+        this.weight = getDistanceFromLatLonInKm(this.lat, this.lng) * 100 / 35.64;
+        this.type = getType(this.weight);
+        this.education = getEducation();
+        this.salary_range = getRandomArbitrary(1, 5);
+        this.transport = 1;
+    }
+
+
+
+    function getEducation() {
+        value = getRandomArbitrary(0, 100);
+        if (value < 0.13)
+            return 1; //analfabeto
+        else if (value <= 7.24) //fundamental incompleto
+            return 2;
+        else if (value <= 15.13) // fundamental completo
+            return 3;
+        else if (value <= 20.62)  // medio incompleto
+            return 4;
+        else if (value <= 64.5)  // medio completo
+            return 5;
+        else if (value <= 69.1)  // superior incompleto
+            return 6;
+        else if (value <= 100)  // superior completo
+            return 7;
+    }
+
+
+    function getRandomArbitrary(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+    function getType(weight) {
+
+        if (weight < 60 && weight > 30) {
+            weight = weight + (60 - weight) / 30 * 10;
+        }
+        if (weight < 30) {
+            weight = weight - (weight) / 30 * 10;
+
+        }
+
+        if (getRandomArbitrary(0, 100) < weight) {
+            return 'resident';
+
+
+        }
+        else {
+            return 'job';
+        }
+    }
+
+
+    function getDistanceFromLatLonInKm(lat1, lon1) {
+        var lat2 = -23.6020214;
+        var lon2 = -46.6721032;
+        var R = 6371; // Radius of the earth in km
+        var dLat = deg2rad(lat2 - lat1);  // deg2rad below
+        var dLon = deg2rad(lon2 - lon1);
+        var a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+            ;
+        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        var d = R * c; // Distance in km
+
+        return d;
+    }
+    function deg2rad(deg) {
+        return deg * (Math.PI / 180)
+    }
+
+
+</script>
+
+<style>
+    /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+
+    #general{
+    height: 10%;
+    }
+    #map {
+        height: 90%;
+    }
+
+    html,
+    /* Optional: Makes the sample page fill the window. */
+    body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+</style>
+
+
+</head>
+
+<body>
+    <div id="general">
+        <input type="checkbox" id="residents" onchange="changeCheckbox()" checked />Residents
+        <input type="checkbox" id="jobs" onchange="changeCheckbox()" checked />Jobs
+        <br>
+        <br>
+   
+        Residents: <input type="number" id="n_residents" onchange="changeCheckbox()" checked />
+        Jobs: <input type="number" id="n_jobs" onchange="changeCheckbox()" checked />
+        <button id="generation">Gerar</button>  
+    </div>
+    <br>
+    <button id="save"> Executar Simulador</button>
+    <br>
+    <a href="visualization.php"> Veja os Resultados das simulações</a>
+    <div id="map"></div>
+    <script>
+
+        // This example requires the Geometry library. Include the libraries=geometry
+        // parameter when you first load the API. For example:
+        // <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=geometry">
+        var map;
+        var jobs = [];
+        var residents = [];
+        var markers = [];
+        var cidadeSaoPaulo;
+        var marcadores = [];
+
+        function isSaoPaulo(lat, long) {
+            var position = { lat: lat, lng: long };
+            var curPosition = new google.maps.LatLng(lat, long);
+            return google.maps.geometry.poly.containsLocation(curPosition, cidadeSaoPaulo);
+
+
+        }
+
+        $("#save").click(function () {
+            jobs_json = JSON.stringify(jobs);
+
+            residents_json = JSON.stringify(residents);
+            $.ajax({
+                type: 'POST',
+                url: 'createSimulator.php',
+                data: { 'residents': residents_json, 'jobs': jobs_json },
+                success: function (msg) {
+                   alert(msg);
+                   alert("Simulação Realizada com sucesso acesse página de vizualização para ver os resultados");
+                }
+            });
+        });
+        $("#generation").click(function () {
+            generate(document.getElementById("n_jobs").value, document.getElementById("n_residents").value);
+        });
+
+        function changeCheckbox() {
+            if (!document.getElementById('jobs').checked) {
+                for (var i = 0; i < markers.length; i++) {
+                    if (markers[i].type == 'job') {
+                        markers[i].setMap(null);
+                    }
+
+                }
+            }
+            else {
+                for (var i = 0; i < markers.length; i++) {
+                    if (markers[i].type == 'job') {
+                        markers[i].setMap(map);
+                    }
+
+                }
+            }
+            if (!document.getElementById('residents').checked) {
+                for (var i = 0; i < markers.length; i++) {
+                    if (markers[i].type == 'resident') {
+                        markers[i].setMap(null);
+                    }
+
+                }
+            }
+            else {
+                for (var i = 0; i < markers.length; i++) {
+                    if (markers[i].type == 'resident') {
+                        markers[i].setMap(map);
+                    }
+                }
+
+            }
+        }
+        function setMarker(object) {
+            var iconBase = 'https://maps.google.com/mapfiles/kml/shapes/';
+            var position = { lat: object.lat, lng: object.lng };
+            var icon;
+            if (object.type == 'resident') {
+                icon = {
+                    url: iconBase + 'parking_lot_maps.png',
+                    scaledSize: new google.maps.Size(20, 20)
+                }
+            }
+            else {
+                icon = {
+                    url: iconBase + 'info-i_maps.png',
+                    scaledSize: new google.maps.Size(20, 20)
+                }
+
+            }
+            var marker = new google.maps.Marker({
+                position: position,
+                map: map,
+                icon: icon,
+                title: 'weight: ' + object.weight,
+                type: object.type
+            });
+
+            markers.push(marker);
+
+        }
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: -23.6020214, lng: -46.6721032 },
+                zoom: 11,
+            });
+
+
+
+            var triangleCoords = [
+                { lat: -23.345455, lng: -46.813124 },
+                { lat: -23.350642, lng: -46.541594 },
+                { lat: -23.458428, lng: -46.530734 },
+                { lat: -23.462488, lng: -46.364213 },
+                { lat: -23.646552, lng: -46.386521 },
+                { lat: -23.664358, lng: -46.609384 },
+                { lat: -23.891345, lng: -46.624447 },
+                { lat: -23.900995, lng: -46.805319 }
+            ];
+
+            cidadeSaoPaulo = new google.maps.Polygon({ paths: triangleCoords });
+
+
+
+
+        }
+
+        function generate(countjobs, countresidents) {
+            while (countjobs != 0 || countresidents != 0) {
+                var marker = new genereteRandom();
+                if (isSaoPaulo(marker.lat, marker.lng)) {
+                    if (marker.type == 'resident' && countresidents > 0) {
+                        countresidents--;
+                        residents.push(marker);
+                        setMarker(marker);
+                    }
+                    if (marker.type == 'job' && countjobs > 0) {
+                        countjobs--;
+                        jobs.push(marker);
+                        setMarker(marker);
+                    }
+
+                }
+
+
+            }
+
+        }
+
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBTD_YLoIDT6mRJB4exOpNiCyDQyc0cQQI&libraries=geometry&callback=initMap"
+        async defer></script>
